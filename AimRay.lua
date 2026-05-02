@@ -26,19 +26,19 @@ local ExcludedPlayers = {}
 local AimbotRadius = 200
 local CircleColor = Color3.fromRGB(255, 0, 0)
 local TargetPart = "Head"
-local ESPEnabled = false
-local HighlightEnabled = false
+
+-- [تعديل بسيط هنا لجعل الـ Xray يشتغل تلقائياً]
+local ESPEnabled = true 
+local HighlightEnabled = true
+local highlightEnabled = true -- جعلتها true للعمل فوراً
+local enemyColor = Color3.fromRGB(255, 0, 0) -- التأكد أن لون الأعداء أحمر
+-- [نهاية التعديل]
+
 local VisualsTeamCheck = true
-
--- متغيرات الـ Xray الجديدة
-local xrayEnabled = true 
-
 local playerHighlights = {}
-local highlightEnabled = false
-local enemyColor = Color3.fromRGB(255, 50, 50) -- Red for enemies
 local teammateColor = Color3.fromRGB(50, 255, 50) -- Green for teammates
 local neutralColor = Color3.fromRGB(100, 150, 255) -- Blue for neutral
-local customTeammates = {} 
+local customTeammates = {} -- Store custom teammate names
 local customTeammateColor = Color3.fromRGB(100, 150, 255)
 
 local TeamDropdown
@@ -92,7 +92,7 @@ local function getTeamColor(player)
     end
     
     if player == LocalPlayer then
-        return Color3.fromRGB(255, 255, 255)
+        return Color3.fromRGB(255, 255, 255) -- White for self
     end
     
     if LocalPlayer.Team and player.Team then
@@ -121,12 +121,11 @@ local function createHighlight(player)
         highlight.main.Name = "ESP_" .. player.UserId
         highlight.main.Adornee = character
         highlight.main.FillColor = getTeamColor(player)
-        highlight.main.FillTransparency = 0.5 -- جعل اللون أوضح قليلاً للأعداء
-        highlight.main.OutlineColor = Color3.new(1,1,1)
+        highlight.main.FillTransparency = 0.5 -- جعلته أوضح قليلاً (Xray)
+        highlight.main.OutlineColor = getTeamColor(player)
         highlight.main.OutlineTransparency = 0
-        highlight.main.Enabled = highlightEnabled
-        -- هنا خاصية الـ Xray (الرؤية خلف الجدران)
-        highlight.main.DepthMode = xrayEnabled and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+        highlight.main.Enabled = highlightEnabled -- سيعمل تلقائياً لأن القيمة فوق true
+        highlight.main.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- هذا هو الـ Xray (رؤية خلف الجدران)
         highlight.main.Parent = character
         
         local head = character:FindFirstChild("Head")
@@ -148,6 +147,8 @@ local function createHighlight(player)
             nameLabel.TextStrokeTransparency = 0.2
             nameLabel.Font = Enum.Font.GothamMedium
             nameLabel.TextScaled = true
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+            nameLabel.TextYAlignment = Enum.TextYAlignment.Center
             nameLabel.Parent = nameTag
             
             nameTag.Parent = head
@@ -180,9 +181,7 @@ local function updateAllHighlightColors()
     for player, highlight in pairs(playerHighlights) do
         if highlight.main then
             highlight.main.FillColor = getTeamColor(player)
-            highlight.main.OutlineColor = Color3.new(1,1,1)
-            -- تحديث وضع Xray
-            highlight.main.DepthMode = xrayEnabled and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+            highlight.main.OutlineColor = getTeamColor(player)
         end
         if highlight.nameTag then
             local label = highlight.nameTag:FindFirstChild("Label")
@@ -218,6 +217,8 @@ RunService.RenderStepped:Connect(function()
                     local scaleFactor = math.clamp(distance / 100, 0.5, 2.0)
                     local calculatedSize = math.clamp(100 * scaleFactor, 80, 150)
                     highlight.nameTag.Size = UDim2.new(0, calculatedSize, 0, calculatedSize * 0.2)
+                    local textSize = math.clamp(14 - (distance / 50), 8, 16)
+                    nameLabel.TextSize = textSize
                 end
             end
         end
@@ -278,10 +279,7 @@ local function UpdateCircle()
     AimbotCircle.Visible = AimbotEnabled
 end
 
--- ==========================================
--- الأقسام (Tabs) كما هي بدون أي تغيير في الوظائف
--- ==========================================
-
+-- Aimbot Tab
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 
 AimbotTab:CreateToggle({
@@ -310,6 +308,12 @@ AimbotTab:CreateButton({
     Callback = function()
         local newOptions = GetTeamNames()
         TeamDropdown:Refresh(newOptions)
+        Rayfield:Notify({
+            Title = "Teams Refreshed",
+            Content = #newOptions .. " teams loaded!",
+            Duration = 3,
+            Image = 4483362458,
+        })
     end,
 })
 
@@ -329,6 +333,12 @@ AimbotTab:CreateButton({
     Callback = function()
         local newOptions = GetPlayerNames()
         PlayerDropdown:Refresh(newOptions)
+        Rayfield:Notify({
+            Title = "Players Refreshed",
+            Content = #newOptions .. " players loaded!",
+            Duration = 3,
+            Image = 4483362458,
+        })
     end,
 })
 
@@ -384,32 +394,17 @@ AimbotTab:CreateDropdown({
     end,
 })
 
--- ==========================================
--- تعديلات قسم Visuals لإضافة الـ Xray
--- ==========================================
-
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
 VisualsTab:CreateToggle({
     Name = "Toggle ESP (Right Bracket Key)",
-    CurrentValue = false,
+    CurrentValue = true, -- معدل ليعمل تلقائياً عند التشغيل
     Flag = "ESPEnabled",
     Callback = function(Value)
         if highlightEnabled ~= Value then
             toggleHighlights()
         end
         ESPEnabled = Value
-    end,
-})
-
--- إضافة زر الـ Xray الجديد هنا
-VisualsTab:CreateToggle({
-    Name = "Xray (See Enemies Through Walls)",
-    CurrentValue = true,
-    Flag = "XrayToggle",
-    Callback = function(Value)
-        xrayEnabled = Value
-        updateAllHighlightColors() -- تحديث فوري للألوان والشفافية
     end,
 })
 
@@ -430,12 +425,28 @@ VisualsTab:CreateButton({
     Callback = function()
         local newOptions = GetPlayerNames()
         customTeammateDropdown:Refresh(newOptions)
+        Rayfield:Notify({
+            Title = "Players Refreshed",
+            Content = #newOptions .. " players loaded!",
+            Duration = 3,
+            Image = 4483362458,
+        })
     end,
 })
 
 VisualsTab:CreateColorPicker({
-    Name = "Enemy Color (Xray Color)",
-    Color = Color3.fromRGB(255, 50, 50),
+    Name = "Custom Teammate Color",
+    Color = Color3.fromRGB(100, 150, 255),
+    Flag = "CustomTeammateColor",
+    Callback = function(Color)
+        customTeammateColor = Color
+        updateAllHighlightColors()
+    end,
+})
+
+VisualsTab:CreateColorPicker({
+    Name = "Enemy Color",
+    Color = Color3.fromRGB(255, 0, 0), -- أحمر صافي
     Flag = "EnemyColor",
     Callback = function(Color)
         enemyColor = Color
@@ -462,10 +473,6 @@ VisualsTab:CreateColorPicker({
         updateAllHighlightColors()
     end,
 })
-
--- ==========================================
--- قسم الـ Misc كما هو
--- ==========================================
 
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
@@ -496,6 +503,10 @@ Players.PlayerRemoving:Connect(function(player)
     removeHighlight(player)
 end)
 
-LocalPlayer:GetPropertyChangedSignal("Team"):Connect(updateAllHighlightColors)
+local function updateAllColors()
+    updateAllHighlightColors()
+end
+
+LocalPlayer:GetPropertyChangedSignal("Team"):Connect(updateAllColors)
 
 Rayfield:LoadConfiguration()
